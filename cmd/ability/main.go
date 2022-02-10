@@ -81,7 +81,7 @@ func buildSeveralInstrumentsResponse(action string, instruments []ability.Instru
 		Value: instrumentsNames,
 		Type:  "enumerated_list",
 	}}
-	resp.Context.SlotFilling.Action = action
+	resp.Context.SlotFilling.Action = deepCopy(action)
 	resp.Context.SlotFilling.MissingSlots = []string{"instrument_name"}
 	resp.AutoReprompt = true
 }
@@ -90,7 +90,7 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 	resp.Nlg.Sentence = "Executing the action {{action}} on the chrome cast {{instrument}}."
 	resp.Nlg.Params = []ability.NLGParam{{
 		Name:  "action",
-		Value: action,
+		Value: deepCopy(action),
 		Type:  "string",
 	}, {
 		Name:  "instrument",
@@ -98,7 +98,7 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 		Type:  "string",
 	}}
 	resp.Actions = []ability.Action{{
-		Identifier: action,
+		Identifier: deepCopy(action),
 		Params: []ability.ActionParameter{{
 			Key:   "instrument",
 			Value: instrument.Name,
