@@ -1,6 +1,8 @@
 package main
 
 import (
+	"unsafe"
+
 	"github.com/milobella/ability-sdk-go/pkg/ability"
 )
 
@@ -18,20 +20,20 @@ func main() {
 
 	handlers := make(map[string]func(_ *ability.Request, resp *ability.Response), 2)
 	for action := range intentsByAction {
-		handlers[action] = newChromeCastActionHandler(action)
+		handlers[deepCopy(action)] = newChromeCastActionHandler(deepCopy(action))
 	}
 
 	// Register first the conditions on actions because they have priority on intents.
 	// The condition returns true if an action is pending.
 	for action := range intentsByAction {
 		server.RegisterRule(func(request *ability.Request) bool {
-			return request.IsInSlotFillingAction(action)
-		}, handlers[action])
+			return request.IsInSlotFillingAction(deepCopy(action))
+		}, handlers[deepCopy(action)])
 	}
 	// Then we register intents routing rules.
 	// It means that if no pending action has been found in the context, we'll use intent to decide the handler.
 	for action, intent := range intentsByAction {
-		server.RegisterIntentRule(intent, handlers[action])
+		server.RegisterIntentRule(deepCopy(intent), handlers[deepCopy(action)])
 	}
 	server.Serve()
 }
@@ -102,4 +104,11 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 			Value: instrument.Name,
 		}},
 	}}
+}
+
+// TODO use strings.Clone when 1.18 is out
+func deepCopy(s string) string {
+	b := make([]byte, len(s))
+	copy(b, s)
+	return *(*string)(unsafe.Pointer(&b))
 }
