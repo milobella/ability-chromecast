@@ -1,0 +1,42 @@
+name: Deploy CI
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Login to docker hub
+        if: success()
+        uses: actions-hub/docker/login@master
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build production image
+        if: success()
+        run:  |
+          docker build -t ${GITHUB_REPOSITORY}:latest -t ${GITHUB_REPOSITORY}:${IMAGE_TAG} \
+            --build-arg PROJECT_NAME=${GITHUB_REPOSITORY%-*} \
+            --build-arg MODULE_NAME=${GITHUB_REPOSITORY#*-} \
+            --build-arg BUILD_VERSION=${IMAGE_TAG} \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg MODULE_DESCRIPTION="Chrome Cast manipulations" \
+            .
+
+      - name: Push tag to docker registry
+        if: success()
+        uses: actions-hub/docker@master
+        with:
+          args: push ${GITHUB_REPOSITORY}:${IMAGE_TAG}
+
+      - name: Push latest to docker registry
+        if: success()
+        uses: actions-hub/docker@master
+        with:
+          args: push ${GITHUB_REPOSITORY}:latest

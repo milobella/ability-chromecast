@@ -1,0 +1,28 @@
+name: Build CI
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the master branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Build dev image
+        if: success()
+        run:  |
+          docker build -t ${GITHUB_REPOSITORY}:dev \
+            --build-arg PROJECT_NAME=${GITHUB_REPOSITORY%-*} \
+            --build-arg MODULE_NAME=${GITHUB_REPOSITORY#*-} \
+            --build-arg BUILD_VERSION=${IMAGE_TAG} \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg MODULE_DESCRIPTION="Chrome Cast manipulations" \
+            .
