@@ -14,26 +14,28 @@ func main() {
 	// Initialize server
 	server := ability.NewServer("ChromeCast", conf.Server.Port)
 
-	intentsByAction := make(map[string]string, 2)
+	intentsByAction := make(map[string]string)
 	intentsByAction["play"] = "CHROME_CAST_PLAY"
 	intentsByAction["pause"] = "CHROME_CAST_PAUSE"
 
 	handlers := make(map[string]func(_ *ability.Request, resp *ability.Response), 2)
 	for action := range intentsByAction {
-		handlers[deepCopy(action)] = newChromeCastActionHandler(deepCopy(action))
+		copiedAction := cloneString(action) // We need to copy the action as it will be used in a different scope
+		handlers[action] = newChromeCastActionHandler(copiedAction)
 	}
 
 	// Register first the conditions on actions because they have priority on intents.
 	// The condition returns true if an action is pending.
 	for action := range intentsByAction {
+		copiedAction := cloneString(action) // We need to copy the action as it will be used in a different scope
 		server.RegisterRule(func(request *ability.Request) bool {
-			return request.IsInSlotFillingAction(deepCopy(action))
-		}, handlers[deepCopy(action)])
+			return request.IsInSlotFillingAction(copiedAction)
+		}, handlers[action])
 	}
 	// Then we register intents routing rules.
 	// It means that if no pending action has been found in the context, we'll use intent to decide the handler.
 	for action, intent := range intentsByAction {
-		server.RegisterIntentRule(deepCopy(intent), handlers[deepCopy(action)])
+		server.RegisterIntentRule(intent, handlers[action])
 	}
 	server.Serve()
 }
@@ -58,19 +60,19 @@ func newChromeCastActionHandler(action string) func(*ability.Request, *ability.R
 }
 
 func buildSeveralInstrumentsResponse(action string, instruments []ability.Instrument, req *ability.Request, resp *ability.Response) {
-	if req.IsInSlotFillingAction(action) {
-		// If the request is in a slot filling context, we try to find the instrument in the NLU.
-		if instrument := req.InterpretInstrumentFromNLU(ability.InstrumentKindChromeCast); instrument != nil {
-			// We found the instrument and return the response
-			buildOneInstrumentsResponse(action, *instrument, resp)
-		} else {
-			// No chrome cast match the request, we return an error.
-			resp.Nlg.Sentence = "I didn't find any chrome cast instrument in the device matching your request."
-		}
+	if instrument := req.InterpretInstrumentFromNLU(ability.InstrumentKindChromeCast); instrument != nil {
+		// We found the instrument in NLU and return the response
+		buildOneInstrumentsResponse(action, *instrument, resp)
 		return
 	}
 
-	// Build a reprompt if we are not in slot filling context
+	if req.IsInSlotFillingAction(action) {
+		// We are in slot filling context and no answer has been found in the NLU, we stop here.
+		resp.Nlg.Sentence = "I didn't find any chrome cast instrument in the device matching your request."
+		return
+	}
+
+	// Build a reprompt answer
 	var instrumentsNames []string
 	for _, instrument := range instruments {
 		instrumentsNames = append(instrumentsNames, instrument.Name)
@@ -81,7 +83,7 @@ func buildSeveralInstrumentsResponse(action string, instruments []ability.Instru
 		Value: instrumentsNames,
 		Type:  "enumerated_list",
 	}}
-	resp.Context.SlotFilling.Action = deepCopy(action)
+	resp.Context.SlotFilling.Action = action
 	resp.Context.SlotFilling.MissingSlots = []string{"instrument_name"}
 	resp.AutoReprompt = true
 }
@@ -90,7 +92,7 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 	resp.Nlg.Sentence = "Executing the action {{action}} on the chrome cast {{instrument}}."
 	resp.Nlg.Params = []ability.NLGParam{{
 		Name:  "action",
-		Value: deepCopy(action),
+		Value: action,
 		Type:  "string",
 	}, {
 		Name:  "instrument",
@@ -98,7 +100,7 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 		Type:  "string",
 	}}
 	resp.Actions = []ability.Action{{
-		Identifier: deepCopy(action),
+		Identifier: action,
 		Params: []ability.ActionParameter{{
 			Key:   "instrument",
 			Value: instrument.Name,
@@ -107,7 +109,7 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 }
 
 // TODO use strings.Clone when 1.18 is out
-func deepCopy(s string) string {
+func cloneString(s string) string {
 	b := make([]byte, len(s))
 	copy(b, s)
 	return *(*string)(unsafe.Pointer(&b))
