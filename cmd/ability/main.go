@@ -1,9 +1,12 @@
 package main
 
 import (
-	"unsafe"
-
 	"github.com/milobella/ability-sdk-go/pkg/ability"
+)
+
+const (
+	playAction  = "play"
+	pauseAction = "pause"
 )
 
 // fun main()
@@ -13,30 +16,25 @@ func main() {
 
 	// Initialize server
 	server := ability.NewServer("ChromeCast", conf.Server.Port)
-
-	intentsByAction := make(map[string]string)
-	intentsByAction["play"] = "CHROME_CAST_PLAY"
-	intentsByAction["pause"] = "CHROME_CAST_PAUSE"
-
-	handlers := make(map[string]func(_ *ability.Request, resp *ability.Response), 2)
-	for action := range intentsByAction {
-		copiedAction := cloneString(action) // We need to copy the action as it will be used in a different scope
-		handlers[action] = newChromeCastActionHandler(copiedAction)
-	}
+	playHandler := newChromeCastActionHandler(playAction)
+	pauseHandler := newChromeCastActionHandler(pauseAction)
 
 	// Register first the conditions on actions because they have priority on intents.
 	// The condition returns true if an action is pending.
-	for action := range intentsByAction {
-		copiedAction := cloneString(action) // We need to copy the action as it will be used in a different scope
-		server.RegisterRule(func(request *ability.Request) bool {
-			return request.IsInSlotFillingAction(copiedAction)
-		}, handlers[action])
-	}
+	server.RegisterRule(func(request *ability.Request) bool {
+		return request.IsInSlotFillingAction(playAction)
+	}, playHandler)
+	server.RegisterRule(func(request *ability.Request) bool {
+		return request.IsInSlotFillingAction(pauseAction)
+	}, pauseHandler)
+
 	// Then we register intents routing rules.
 	// It means that if no pending action has been found in the context, we'll use intent to decide the handler.
-	for action, intent := range intentsByAction {
-		server.RegisterIntentRule(intent, handlers[action])
-	}
+	server.RegisterIntentRule("CHROME_CAST_PLAY", playHandler)
+	server.RegisterIntentRule("CHROME_CAST_PAUSE", pauseHandler)
+	server.RegisterIntentRule("PLAY", playHandler)
+	server.RegisterIntentRule("PAUSE", pauseHandler)
+
 	server.Serve()
 }
 
@@ -106,11 +104,4 @@ func buildOneInstrumentsResponse(action string, instrument ability.Instrument, r
 			Value: instrument.Name,
 		}},
 	}}
-}
-
-// TODO use strings.Clone when 1.18 is out
-func cloneString(s string) string {
-	b := make([]byte, len(s))
-	copy(b, s)
-	return *(*string)(unsafe.Pointer(&b))
 }
