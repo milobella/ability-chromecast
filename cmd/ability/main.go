@@ -4,6 +4,7 @@ import (
 	"github.com/milobella/ability-sdk-go/pkg/config"
 	"github.com/milobella/ability-sdk-go/pkg/model"
 	"github.com/milobella/ability-sdk-go/pkg/server"
+	"github.com/milobella/ability-sdk-go/pkg/server/conditions"
 	"github.com/milobella/ability-sdk-go/pkg/server/interpreters"
 )
 
@@ -24,13 +25,13 @@ func main() {
 
 	// Register first the conditions on actions because they have priority on intents.
 	// The condition returns true if an action is pending.
-	srv.Register(server.IfInSlotFilling(playAction), playHandler)
-	srv.Register(server.IfInSlotFilling(pauseAction), pauseHandler)
+	srv.Register(conditions.IfInSlotFilling(playAction), playHandler)
+	srv.Register(conditions.IfInSlotFilling(pauseAction), pauseHandler)
 
 	// Then we register intents routing rules.
 	// It means that if no pending action has been found in the context, we'll use intent to decide the handler.
-	srv.Register(server.IfIntents("CHROME_CAST_PLAY", "PLAY"), playHandler)
-	srv.Register(server.IfIntents("CHROME_CAST_PAUSE", "PAUSE"), pauseHandler)
+	srv.Register(conditions.IfIntents("CHROME_CAST_PLAY", "PLAY"), playHandler)
+	srv.Register(conditions.IfIntents("CHROME_CAST_PAUSE", "PAUSE"), pauseHandler)
 
 	srv.Serve()
 }
