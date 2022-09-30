@@ -3,7 +3,7 @@
 
 ########################################################################
 ### builder stage : Build the golang application in src folder
-FROM golang:1.17-alpine as builder
+FROM golang:1.19-alpine as builder
 
 COPY . /src
 WORKDIR /src
